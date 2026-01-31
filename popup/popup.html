@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>News Neutralizer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>News Neutralizer</h1>
+    <p class="subtitle">Neutral view of the article you're reading</p>
+    <button id="analyze" type="button">Get neutral view</button>
+    <div id="status" class="status hidden"></div>
+    <div id="result" class="result hidden">
+      <section id="bias-section" class="section"></section>
+      <section id="summary-section" class="section"></section>
+      <section id="related-section" class="section hidden"></section>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
