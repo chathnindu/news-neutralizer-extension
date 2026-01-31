@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "News Neutralizer",
   "version": "1.0.0",
-  "description": "Analyze news articles and find related sources",
+  "description": "Analyze news articles and find related sources. Works on any website to extract article content.",
   "permissions": [
     "activeTab",
     "storage",

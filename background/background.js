@@ -3,6 +3,9 @@ import { findRelatedArticles } from './multi-source-fetcher.js';
 
 const STORAGE_KEY = 'currentAnalysisState';
 
+// Common stop words for keyword extraction
+const STOP_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'it', 'its', 'they', 'their', 'them']);
+
 // Default idle state
 function getDefaultState() {
   return {
@@ -43,13 +46,10 @@ function setBadge(text, color) {
 function extractKeywords(title, text) {
   const combined = `${title} ${text}`.toLowerCase();
   
-  // Remove common stop words and special characters
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been', 'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'it', 'its', 'they', 'their', 'them']);
-  
   const words = combined
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(word => word.length > 3 && !stopWords.has(word));
+    .filter(word => word.length > 3 && !STOP_WORDS.has(word));
   
   // Get unique words and take top 10 by frequency
   const wordFreq = {};

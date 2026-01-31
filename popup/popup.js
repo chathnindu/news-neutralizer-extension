@@ -124,5 +124,9 @@ getStateBtn.addEventListener('click', getCurrentState);
 // Load initial state on popup open
 getCurrentState();
 
-// Poll for state updates every 2 seconds
-setInterval(getCurrentState, 2000);
+// Listen for storage changes to update state automatically
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.currentAnalysisState) {
+    displayStatus(changes.currentAnalysisState.newValue);
+  }
+});
