@@ -198,16 +198,15 @@ async function updateState(stateUpdate) {
  * Set error state
  */
 async function setErrorState(errorMessage) {
-  await chrome.storage.local.get(STORAGE_KEY, (result) => {
-    const currentState = result[STORAGE_KEY] || {};
-    chrome.storage.local.set({
-      [STORAGE_KEY]: {
-        ...currentState,
-        status: 'error',
-        error: errorMessage,
-        timestamp: Date.now()
-      }
-    });
+  const result = await chrome.storage.local.get(STORAGE_KEY);
+  const currentState = result[STORAGE_KEY] || {};
+  await chrome.storage.local.set({
+    [STORAGE_KEY]: {
+      ...currentState,
+      status: 'error',
+      error: errorMessage,
+      timestamp: Date.now()
+    }
   });
 }
 
