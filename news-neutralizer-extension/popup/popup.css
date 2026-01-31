@@ -1,0 +1,42 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; }
+.popup { width: 380px; min-height: 200px; padding: 16px; }
+header { margin-bottom: 12px; }
+h1 { margin: 0; font-size: 18px; }
+.subtitle { margin: 4px 0 0; color: #64748b; font-size: 12px; }
+.primary {
+  width: 100%; padding: 10px 16px; font-size: 14px;
+  background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer;
+}
+.primary:hover { background: #1d4ed8; }
+.primary:disabled { background: #94a3b8; cursor: not-allowed; }
+.secondary {
+  width: 100%; margin-top: 8px; padding: 8px 12px; font-size: 13px;
+  background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;
+}
+.secondary:hover { background: #e2e8f0; }
+.hidden { display: none !important; }
+.status { margin-top: 12px; padding: 8px 12px; border-radius: 6px; }
+.status.loading { background: #e0f2fe; color: #0369a1; }
+.status.error { background: #fee2e2; color: #b91c1c; }
+.result { margin-top: 12px; }
+.badge-row { margin-bottom: 12px; }
+.badge { display: inline-block; padding: 4px 10px; background: #2563eb; color: white; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.card { margin-bottom: 12px; padding: 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid #e2e8f0; }
+.card h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
+.card p { margin: 0; line-height: 1.5; }
+.bias-label { font-weight: 600; }
+.muted { margin-top: 6px; color: #64748b; font-size: 13px; }
+.comparison { margin-top: 12px; padding: 12px; background: #f1f5f9; border-radius: 8px; font-size: 13px; }
+.comparison h3 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; color: #64748b; }
+.comparison ul { margin: 0 0 12px; padding-left: 18px; }
+.sources-section { margin-top: 16px; }
+.sources-section h2 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; color: #64748b; }
+.source-grid { display: flex; flex-direction: column; gap: 8px; }
+.source-card {
+  display: block; padding: 10px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
+  text-decoration: none; color: inherit;
+}
+.source-card:hover { border-color: #2563eb; background: #f8fafc; }
+.source-card .title { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.source-card .meta { font-size: 11px; color: #64748b; }

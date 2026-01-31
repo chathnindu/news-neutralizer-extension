@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>News Neutralizer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup">
+    <header>
+      <h1>News Neutralizer</h1>
+      <p class="subtitle">See how multiple sources cover the same story</p>
+    </header>
+    <button type="button" id="analyze" class="primary">Get neutral view</button>
+    <div id="status" class="status hidden"></div>
+    <div id="result" class="result hidden">
+      <div id="badge-row" class="badge-row hidden"></div>
+      <section id="summary-card" class="card hidden"></section>
+      <section id="bias-card" class="card hidden"></section>
+      <button type="button" id="toggle-comparison" class="secondary hidden">Show comparison</button>
+      <div id="comparison" class="comparison hidden"></div>
+      <section id="sources" class="sources-section hidden">
+        <h2>Sources</h2>
+        <div id="source-list" class="source-grid"></div>
+      </section>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
