@@ -51,7 +51,7 @@ async function loadState() {
     if (response.success) {
       displayState(response.state);
     } else {
-      showError('Failed to load state');
+      showError(response.error || 'Failed to load state');
     }
   } catch (error) {
     console.error('Error loading state:', error);

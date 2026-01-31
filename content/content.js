@@ -92,7 +92,7 @@ function extractMainText() {
 
   // Clean up whitespace
   text = text
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/[^\S\n]+/g, ' ') // Replace multiple spaces/tabs with single space (preserve newlines)
     .replace(/\n+/g, '\n') // Replace multiple newlines with single newline
     .trim();
 
