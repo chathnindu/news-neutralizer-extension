@@ -1,0 +1,23 @@
+# Temporary files
+*.py
+*.sh
+create_*
+
+# Node modules if added later
+node_modules/
+npm-debug.log
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
