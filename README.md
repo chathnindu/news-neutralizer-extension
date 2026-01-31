@@ -1,4 +1,7 @@
 # news-neutralizer-extension
-/nTHIS IS NOT A WORKING EXTENSION.
-WE ADVICE YOU TO HANDLE IT WITH CARE AS THERE ARE BUGS AND ERRRORS THROUGH OUT THE CODE.
-THANK YOU FOR YOUR ATTENTION.!!
+
+**⚠️ THIS IS NOT A WORKING EXTENSION.**
+
+We advise you to handle this repository with care, as there are bugs and errors throughout the code. This project is currently in a non-functional state and is intended for development purposes only.
+
+**THANK YOU FOR YOUR ATTENTION!**
