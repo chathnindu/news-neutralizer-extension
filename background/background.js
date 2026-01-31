@@ -1,13 +1,13 @@
-importScripts(
-  'utils/api.js',
-  'utils/storage.js',
-  'background/content-detector.js',
-  'background/news-api-handler.js',
-  'background/multi-source-fetcher.js',
-  'analysis/bias-detector.js',
-  'analysis/narrative-analyzer.js',
-  'analysis/cross-summary.js'
-);
+import '../utils/api.js';
+import '../utils/storage.js';
+
+import './content-detector.js';
+import './news-api-handler.js';
+import './multi-source-fetcher.js';
+
+import '../analysis/bias-detector.js';
+import '../analysis/narrative-analyzer.js';
+import '../analysis/cross-summary.js';
 
 const BADGE_ANALYZING = '...';
 const BADGE_COLOR = '#2563eb';
