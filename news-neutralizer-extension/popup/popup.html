@@ -3,30 +3,169 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2563eb">
   <title>News Neutralizer</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="popup">
-    <header>
-      <h1>News Neutralizer</h1>
-      <p class="subtitle">See how multiple sources cover the same story</p>
+  <!-- 
+    ============================================
+    News Neutralizer Popup
+    ============================================
+    
+    Main extension popup with two views:
+    1. Main View - Shows analysis results
+    2. Settings View - Configure API keys (BYOK)
+  -->
+  
+  <div id="app" class="popup">
+    
+    <!-- Header with settings toggle -->
+    <header class="header">
+      <h1>📰 News Neutralizer</h1>
+      <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
     </header>
-    <button type="button" id="analyze" class="primary">Get neutral view</button>
-    <div id="status" class="status hidden"></div>
-    <div id="result" class="result hidden">
-      <div id="badge-row" class="badge-row hidden"></div>
-      <section id="summary-card" class="card hidden"></section>
-      <section id="bias-card" class="card hidden"></section>
-      <button type="button" id="toggle-comparison" class="secondary hidden">Show comparison</button>
-      <div id="comparison" class="comparison hidden"></div>
-      <section id="sources" class="sources-section hidden">
-        <h2>Sources</h2>
-        <div id="source-list" class="source-grid"></div>
-      </section>
+    
+    <!-- ============================================ -->
+    <!-- MAIN VIEW - Analysis Results -->
+    <!-- ============================================ -->
+    <div id="main-view">
+      
+      <!-- Status message (loading, errors) -->
+      <div id="status" class="status hidden"></div>
+      
+      <!-- Not configured message -->
+      <div id="not-configured" class="card warning hidden">
+        <p>⚠️ API keys not configured</p>
+        <button id="open-settings" class="btn secondary">Configure API Keys</button>
+      </div>
+      
+      <!-- Analyze button -->
+      <button id="analyze-btn" class="btn primary">
+        <span class="btn-text">🔍 Analyze This Article</span>
+        <span class="btn-loading hidden">Analyzing...</span>
+      </button>
+      
+      <!-- Results container (hidden until analysis complete) -->
+      <div id="results" class="results hidden">
+        
+        <!-- Source count badge -->
+        <div id="source-badge" class="badge-row">
+          <span class="badge">0 sources analyzed</span>
+        </div>
+        
+        <!-- Neutral Summary -->
+        <section id="summary-section" class="card">
+          <h2>📝 Neutral Summary</h2>
+          <p id="summary-text">-</p>
+          
+          <!-- Key Facts -->
+          <div id="key-facts" class="facts-list hidden">
+            <h3>Key Facts</h3>
+            <ul id="facts-list"></ul>
+          </div>
+        </section>
+        
+        <!-- Bias Analysis -->
+        <section id="bias-section" class="card">
+          <h2>⚖️ Bias Analysis</h2>
+          <div class="bias-score">
+            <span id="bias-label" class="label">Unknown</span>
+            <div class="score-bar">
+              <div id="score-fill" class="score-fill" style="width: 0%"></div>
+            </div>
+            <span id="bias-value" class="value">0%</span>
+          </div>
+          <p id="bias-direction" class="direction">-</p>
+          <p id="bias-assessment" class="assessment muted">-</p>
+        </section>
+        
+        <!-- Source Comparison (toggle) -->
+        <button id="toggle-comparison" class="btn secondary hidden">
+          Show Comparison ▼
+        </button>
+        <section id="comparison-section" class="card hidden">
+          <h2>🔄 Source Comparison</h2>
+          <div id="consensus">
+            <h3>✅ Sources Agree On</h3>
+            <ul id="consensus-list"></ul>
+          </div>
+          <div id="differences">
+            <h3>⚡ Where They Differ</h3>
+            <ul id="differences-list"></ul>
+          </div>
+        </section>
+        
+        <!-- Sources List -->
+        <section id="sources-section" class="card">
+          <h2>📚 Sources</h2>
+          <div id="sources-list" class="sources-grid"></div>
+        </section>
+        
+      </div>
     </div>
+    
+    <!-- ============================================ -->
+    <!-- SETTINGS VIEW - API Configuration -->
+    <!-- ============================================ -->
+    <div id="settings-view" class="hidden">
+      
+      <h2>⚙️ Settings</h2>
+      <p class="subtitle">Configure your free API keys</p>
+      
+      <!-- AI Provider Selection -->
+      <div class="form-group">
+        <label for="ai-provider">AI Provider</label>
+        <select id="ai-provider">
+          <option value="gemini">Google AI (Gemini) - 60 req/min</option>
+          <option value="openrouter">OpenRouter - Free models</option>
+          <option value="groq">Groq - 14,400 req/day</option>
+        </select>
+        <a id="ai-signup-link" href="#" target="_blank" class="help-link">
+          Get free API key ↗
+        </a>
+      </div>
+      
+      <div class="form-group">
+        <label for="ai-key">AI API Key</label>
+        <input type="password" id="ai-key" placeholder="Paste your API key here">
+        <button id="test-ai" class="btn small">Test</button>
+        <span id="ai-status" class="status-icon"></span>
+      </div>
+      
+      <hr>
+      
+      <!-- News Provider Selection -->
+      <div class="form-group">
+        <label for="news-provider">News Provider</label>
+        <select id="news-provider">
+          <option value="gnews">GNews - 100 req/day</option>
+          <option value="newsdata">NewsData.io - 200 req/day</option>
+        </select>
+        <a id="news-signup-link" href="#" target="_blank" class="help-link">
+          Get free API key ↗
+        </a>
+      </div>
+      
+      <div class="form-group">
+        <label for="news-key">News API Key</label>
+        <input type="password" id="news-key" placeholder="Paste your API key here">
+        <button id="test-news" class="btn small">Test</button>
+        <span id="news-status" class="status-icon"></span>
+      </div>
+      
+      <div class="button-row">
+        <button id="save-settings" class="btn primary">Save Settings</button>
+        <button id="back-btn" class="btn secondary">← Back</button>
+      </div>
+      
+      <p class="footer-note">
+        All your data stays local. API keys are stored securely in your browser.
+      </p>
+      
+    </div>
+    
   </div>
-  <script src="popup.js"></script>
+  
+  <script src="popup.js" type="module"></script>
 </body>
 </html>
