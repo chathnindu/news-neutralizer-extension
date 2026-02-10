@@ -112,45 +112,34 @@
       <h2>⚙️ Settings</h2>
       <p class="subtitle">Configure your free API keys</p>
       
-      <!-- AI Provider Selection -->
+      <!-- AI Provider (Groq only) -->
       <div class="form-group">
-        <label for="ai-provider">AI Provider</label>
-        <select id="ai-provider">
-          <option value="gemini">Google AI (Gemini) - 60 req/min</option>
-          <option value="openrouter">OpenRouter - Free models</option>
-          <option value="groq">Groq - 14,400 req/day</option>
-        </select>
-        <a id="ai-signup-link" href="#" target="_blank" class="help-link">
+        <label>AI Provider</label>
+        <div class="provider-label">Groq (Llama 3.3 70B) — 14,400 req/day</div>
+        <a id="ai-signup-link" href="https://console.groq.com/keys" target="_blank" class="help-link">
           Get free API key ↗
         </a>
       </div>
       
       <div class="form-group">
-        <label for="ai-key">AI API Key</label>
-        <input type="password" id="ai-key" placeholder="Paste your API key here">
-        <button id="test-ai" class="btn small">Test</button>
-        <span id="ai-status" class="status-icon"></span>
+        <label for="ai-key">Groq API Key</label>
+        <input type="password" id="ai-key" placeholder="Paste your Groq API key here">
       </div>
       
       <hr>
       
-      <!-- News Provider Selection -->
+      <!-- News Provider (GNews only) -->
       <div class="form-group">
-        <label for="news-provider">News Provider</label>
-        <select id="news-provider">
-          <option value="gnews">GNews - 100 req/day</option>
-          <option value="newsdata">NewsData.io - 200 req/day</option>
-        </select>
-        <a id="news-signup-link" href="#" target="_blank" class="help-link">
+        <label>News Provider</label>
+        <div class="provider-label">GNews — 100 req/day</div>
+        <a id="news-signup-link" href="https://gnews.io/register" target="_blank" class="help-link">
           Get free API key ↗
         </a>
       </div>
       
       <div class="form-group">
-        <label for="news-key">News API Key</label>
-        <input type="password" id="news-key" placeholder="Paste your API key here">
-        <button id="test-news" class="btn small">Test</button>
-        <span id="news-status" class="status-icon"></span>
+        <label for="news-key">GNews API Key</label>
+        <input type="password" id="news-key" placeholder="Paste your GNews API key here">
       </div>
       
       <div class="button-row">

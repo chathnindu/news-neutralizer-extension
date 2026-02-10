@@ -417,6 +417,16 @@ body {
   margin-left: var(--spacing-sm);
 }
 
+.provider-label {
+  padding: var(--spacing-md);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
 hr {
   border: none;
   border-top: 1px solid var(--border-color);

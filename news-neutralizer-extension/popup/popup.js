@@ -11,27 +11,17 @@
 // Configuration
 // ============================================
 
-const AI_PROVIDERS = {
-  gemini: {
-    name: 'Google AI (Gemini)',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/models',
-    model: 'gemini-2.0-flash',
-    signupUrl: 'https://aistudio.google.com/app/apikey'
-  },
-  groq: {
-    name: 'Groq',
-    baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'llama-3.3-70b-versatile',
-    signupUrl: 'https://console.groq.com/keys'
-  }
+const AI_CONFIG = {
+  name: 'Groq',
+  baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+  model: 'llama-3.3-70b-versatile',
+  signupUrl: 'https://console.groq.com/keys'
 };
 
-const NEWS_PROVIDERS = {
-  gnews: {
-    name: 'GNews',
-    baseUrl: 'https://gnews.io/api/v4/search',
-    signupUrl: 'https://gnews.io/register'
-  }
+const NEWS_CONFIG = {
+  name: 'GNews',
+  baseUrl: 'https://gnews.io/api/v4/search',
+  signupUrl: 'https://gnews.io/register'
 };
 
 // ============================================
@@ -66,9 +56,7 @@ const settingsBtn = document.getElementById('settings-btn');
 const openSettingsBtn = document.getElementById('open-settings');
 const backBtn = document.getElementById('back-btn');
 const saveSettingsBtn = document.getElementById('save-settings');
-const aiProviderSelect = document.getElementById('ai-provider');
 const aiKeyInput = document.getElementById('ai-key');
-const newsProviderSelect = document.getElementById('news-provider');
 const newsKeyInput = document.getElementById('news-key');
 const aiSignupLink = document.getElementById('ai-signup-link');
 const newsSignupLink = document.getElementById('news-signup-link');
@@ -78,17 +66,15 @@ const newsSignupLink = document.getElementById('news-signup-link');
 // ============================================
 
 async function getConfig() {
-  const result = await chrome.storage.local.get(['aiProvider', 'aiApiKey', 'newsProvider', 'newsApiKey']);
+  const result = await chrome.storage.local.get(['aiApiKey', 'newsApiKey']);
   return {
-    aiProvider: result.aiProvider || 'gemini',
     aiApiKey: result.aiApiKey || '',
-    newsProvider: result.newsProvider || 'gnews',
     newsApiKey: result.newsApiKey || ''
   };
 }
 
-async function saveConfig(config) {
-  await chrome.storage.local.set(config);
+async function saveConfig(aiApiKey, newsApiKey) {
+  await chrome.storage.local.set({ aiApiKey, newsApiKey });
 }
 
 async function isConfigured() {
@@ -112,10 +98,8 @@ function showSettingsView() {
 }
 
 function updateSignupLinks() {
-  const aiProvider = aiProviderSelect.value;
-  const newsProvider = newsProviderSelect.value;
-  aiSignupLink.href = AI_PROVIDERS[aiProvider]?.signupUrl || '#';
-  newsSignupLink.href = NEWS_PROVIDERS[newsProvider]?.signupUrl || '#';
+  aiSignupLink.href = AI_CONFIG.signupUrl;
+  newsSignupLink.href = NEWS_CONFIG.signupUrl;
 }
 
 // ============================================
@@ -138,20 +122,13 @@ function hideStatus() {
 
 async function loadSettings() {
   const config = await getConfig();
-  aiProviderSelect.value = config.aiProvider;
   aiKeyInput.value = config.aiApiKey;
-  newsProviderSelect.value = config.newsProvider;
   newsKeyInput.value = config.newsApiKey;
   updateSignupLinks();
 }
 
 async function saveSettings() {
-  await saveConfig({
-    aiProvider: aiProviderSelect.value,
-    aiApiKey: aiKeyInput.value.trim(),
-    newsProvider: newsProviderSelect.value,
-    newsApiKey: newsKeyInput.value.trim()
-  });
+  await saveConfig(aiKeyInput.value.trim(), newsKeyInput.value.trim());
 
   showStatus('Settings saved!', 'success');
   setTimeout(() => {
@@ -178,55 +155,19 @@ async function checkConfiguration() {
 // ============================================
 
 /**
- * Call Gemini API directly
- */
-async function callGemini(prompt, apiKey) {
-  const config = AI_PROVIDERS.gemini;
-  const url = `${config.baseUrl}/${config.model}:generateContent?key=${apiKey}`;
-
-  console.log('🤖 Calling Gemini API...');
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 4096, temperature: 0.7 }
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    console.error('Gemini error:', error);
-    throw new Error(error.error?.message || `Gemini API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!text) {
-    throw new Error('No response from Gemini');
-  }
-
-  return text;
-}
-
-/**
  * Call Groq API directly
  */
 async function callGroq(prompt, apiKey) {
-  const config = AI_PROVIDERS.groq;
-
   console.log('🤖 Calling Groq API...');
 
-  const response = await fetch(config.baseUrl, {
+  const response = await fetch(AI_CONFIG.baseUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: config.model,
+      model: AI_CONFIG.model,
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 4096
     })
@@ -242,23 +183,16 @@ async function callGroq(prompt, apiKey) {
 }
 
 /**
- * Send prompt to configured AI provider
+ * Send prompt to Groq AI
  */
 async function sendToAI(prompt) {
   const config = await getConfig();
 
   if (!config.aiApiKey) {
-    throw new Error('AI API key not configured');
+    throw new Error('AI API key not configured. Go to Settings to add your Groq API key.');
   }
 
-  switch (config.aiProvider) {
-    case 'gemini':
-      return callGemini(prompt, config.aiApiKey);
-    case 'groq':
-      return callGroq(prompt, config.aiApiKey);
-    default:
-      return callGemini(prompt, config.aiApiKey);
-  }
+  return callGroq(prompt, config.aiApiKey);
 }
 
 /**
@@ -302,7 +236,7 @@ async function searchNews(query) {
     lang: 'en'
   });
 
-  const url = `${NEWS_PROVIDERS.gnews.baseUrl}?${params}`;
+  const url = `${NEWS_CONFIG.baseUrl}?${params}`;
   console.log('🔍 Searching news...');
 
   try {
@@ -502,8 +436,6 @@ function escapeHtml(text) {
 settingsBtn.addEventListener('click', showSettingsView);
 openSettingsBtn.addEventListener('click', showSettingsView);
 backBtn.addEventListener('click', showMainView);
-aiProviderSelect.addEventListener('change', updateSignupLinks);
-newsProviderSelect.addEventListener('change', updateSignupLinks);
 saveSettingsBtn.addEventListener('click', saveSettings);
 analyzeBtn.addEventListener('click', runAnalysis);
 
