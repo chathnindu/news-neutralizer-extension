@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "News Neutralizer",
+  "version": "2.0.0",
+  "description": "Analyze news articles for bias and get neutral summaries. Bring your own free API keys!",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.groq.com/*",
+    "https://gnews.io/*",
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": "icons/icon48.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/content.js"
+      ]
+    }
+  ],
+  "icons": {
+    "48": "icons/icon48.png"
+  }
+}
