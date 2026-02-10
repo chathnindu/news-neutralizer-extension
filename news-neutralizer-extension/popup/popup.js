@@ -45,21 +45,18 @@ const scoreFillEl = document.getElementById('score-fill');
 const biasValueEl = document.getElementById('bias-value');
 const biasDirectionEl = document.getElementById('bias-direction');
 const biasAssessmentEl = document.getElementById('bias-assessment');
-const toggleComparisonBtn = document.getElementById('toggle-comparison');
-const comparisonSection = document.getElementById('comparison-section');
-const consensusListEl = document.getElementById('consensus-list');
-const differencesListEl = document.getElementById('differences-list');
 const sourcesListEl = document.getElementById('sources-list');
 
 // Settings elements
 const settingsBtn = document.getElementById('settings-btn');
 const openSettingsBtn = document.getElementById('open-settings');
 const backBtn = document.getElementById('back-btn');
-const saveSettingsBtn = document.getElementById('save-settings');
 const aiKeyInput = document.getElementById('ai-key');
 const newsKeyInput = document.getElementById('news-key');
 const aiSignupLink = document.getElementById('ai-signup-link');
 const newsSignupLink = document.getElementById('news-signup-link');
+const aiKeyStatusEl = document.getElementById('ai-key-status');
+const newsKeyStatusEl = document.getElementById('news-key-status');
 
 // ============================================
 // Storage Helpers (using chrome.storage.local)
@@ -73,8 +70,8 @@ async function getConfig() {
   };
 }
 
-async function saveConfig(aiApiKey, newsApiKey) {
-  await chrome.storage.local.set({ aiApiKey, newsApiKey });
+async function saveKey(key, value) {
+  await chrome.storage.local.set({ [key]: value });
 }
 
 async function isConfigured() {
@@ -120,22 +117,56 @@ function hideStatus() {
 // Settings
 // ============================================
 
+/**
+ * Show inline status next to a key input
+ */
+function showKeyStatus(statusEl, message, type) {
+  statusEl.textContent = message;
+  statusEl.className = `key-status ${type}`;
+}
+
 async function loadSettings() {
   const config = await getConfig();
   aiKeyInput.value = config.aiApiKey;
   newsKeyInput.value = config.newsApiKey;
   updateSignupLinks();
+
+  // Show current status for each key
+  updateKeyStatus(aiKeyInput, aiKeyStatusEl);
+  updateKeyStatus(newsKeyInput, newsKeyStatusEl);
 }
 
-async function saveSettings() {
-  await saveConfig(aiKeyInput.value.trim(), newsKeyInput.value.trim());
+function updateKeyStatus(input, statusEl) {
+  const val = input.value.trim();
+  if (val.length > 0) {
+    showKeyStatus(statusEl, '✅ Key saved', 'saved');
+  } else {
+    showKeyStatus(statusEl, '⚠️ No key set', 'empty');
+  }
+}
 
-  showStatus('Settings saved!', 'success');
-  setTimeout(() => {
-    hideStatus();
-    showMainView();
-    checkConfiguration();
-  }, 1000);
+/**
+ * Auto-save a single key when the input changes
+ */
+async function autoSaveKey(input, storageKey, statusEl) {
+  const val = input.value.trim();
+  if (val.length > 0) {
+    await saveKey(storageKey, val);
+    showKeyStatus(statusEl, '✅ Key saved', 'saved');
+  } else {
+    // Don't delete an existing key if the field is empty on blur
+    // Only clear if user explicitly blanked it out
+    const existing = await chrome.storage.local.get([storageKey]);
+    if (existing[storageKey] && val === '') {
+      // User intentionally cleared — save empty
+      await saveKey(storageKey, '');
+      showKeyStatus(statusEl, '⚠️ Key removed', 'empty');
+    } else {
+      showKeyStatus(statusEl, '⚠️ No key set', 'empty');
+    }
+  }
+  // Update main view configuration state
+  checkConfiguration();
 }
 
 async function checkConfiguration() {
@@ -196,19 +227,32 @@ async function sendToAI(prompt) {
 }
 
 /**
- * Send prompt and parse as JSON
+ * Send prompt and parse as JSON (with 1 retry on parse failure)
  */
 async function sendToAIJSON(prompt) {
-  const fullPrompt = `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation.`;
-  const response = await sendToAI(fullPrompt);
+  const fullPrompt = `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code fences, no explanation.`;
 
-  // Clean up response
-  const cleaned = response
-    .replace(/```json\n?/g, '')
-    .replace(/```\n?/g, '')
-    .trim();
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await sendToAI(
+      attempt === 1 ? fullPrompt : `${fullPrompt}\n\nYour previous response was not valid JSON. Please try again with ONLY valid JSON.`
+    );
 
-  return JSON.parse(cleaned);
+    // Clean up response — strip markdown fences and whitespace
+    const cleaned = response
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleaned);
+    } catch (parseError) {
+      console.warn(`JSON parse attempt ${attempt} failed:`, parseError.message);
+      if (attempt === 2) {
+        throw new Error('AI returned an invalid response. Please try again.');
+      }
+      // Retry with a stronger prompt
+    }
+  }
 }
 
 /**
@@ -276,19 +320,28 @@ async function runAnalysis() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error('No active tab found');
 
-    // Try to inject content script first (in case it wasn't loaded)
+    // Check if content script is already loaded, inject if not
+    let scriptReady = false;
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ['content/content.js']
-      });
-      console.log('📜 Content script injected');
+      const ping = await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+      scriptReady = ping?.ok;
     } catch (e) {
-      console.log('📜 Content script already loaded or injection failed:', e.message);
+      // Content script not loaded yet
     }
 
-    // Small delay to let script initialize
-    await new Promise(r => setTimeout(r, 100));
+    if (!scriptReady) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/content.js']
+        });
+        console.log('📜 Content script injected');
+        // Wait for script to initialize
+        await new Promise(r => setTimeout(r, 200));
+      } catch (e) {
+        console.log('📜 Content script injection failed:', e.message);
+      }
+    }
 
     // Extract article from page
     let extractResult;
@@ -408,9 +461,6 @@ function displayResults(result) {
             `)
       .join('');
   }
-
-  // Hide comparison for now (simplified)
-  toggleComparisonBtn.classList.add('hidden');
 }
 
 function formatDirection(direction) {
@@ -435,13 +485,26 @@ function escapeHtml(text) {
 
 settingsBtn.addEventListener('click', showSettingsView);
 openSettingsBtn.addEventListener('click', showSettingsView);
-backBtn.addEventListener('click', showMainView);
-saveSettingsBtn.addEventListener('click', saveSettings);
+backBtn.addEventListener('click', () => {
+  showMainView();
+  checkConfiguration();
+});
 analyzeBtn.addEventListener('click', runAnalysis);
 
-toggleComparisonBtn?.addEventListener('click', () => {
-  const isHidden = comparisonSection.classList.toggle('hidden');
-  toggleComparisonBtn.textContent = isHidden ? 'Show Comparison ▼' : 'Hide Comparison ▲';
+// Auto-save keys on input change (paste or type)
+aiKeyInput.addEventListener('input', () => autoSaveKey(aiKeyInput, 'aiApiKey', aiKeyStatusEl));
+newsKeyInput.addEventListener('input', () => autoSaveKey(newsKeyInput, 'newsApiKey', newsKeyStatusEl));
+
+// Show/hide password toggle
+document.querySelectorAll('.toggle-vis').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.target);
+    if (target) {
+      const isPassword = target.type === 'password';
+      target.type = isPassword ? 'text' : 'password';
+      btn.textContent = isPassword ? '🙈' : '👁';
+    }
+  });
 });
 
 // ============================================

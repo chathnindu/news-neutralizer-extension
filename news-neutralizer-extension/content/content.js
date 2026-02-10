@@ -156,9 +156,10 @@
   /**
    * Check if this page looks like a news article
    * Uses simple heuristics
+   * @param {string} content - Already extracted content
    * @returns {boolean}
    */
-  function isNewsArticle() {
+  function isNewsArticle(content) {
     // Check for article-related meta tags
     const hasArticleType = !!document.querySelector(
       'meta[property="og:type"][content="article"]'
@@ -176,7 +177,6 @@
     const hasNewsUrl = newsUrlPatterns.some(p => url.includes(p));
 
     // Check content length
-    const content = getContent();
     const hasSubstantialContent = content.length >= MIN_CONTENT_LENGTH;
 
     return hasSubstantialContent && (hasArticleType || hasArticleElement || hasNewsUrl);
@@ -188,12 +188,13 @@
    * @returns {object}
    */
   function extractArticle() {
+    const content = getContent();
     return {
       url: window.location.href,
       title: getTitle(),
-      content: getContent(),
+      content: content,
       source: getSource(),
-      isNews: isNewsArticle(),
+      isNews: isNewsArticle(content),
       extractedAt: Date.now()
     };
   }
@@ -225,7 +226,14 @@
 
     // Handle quick check for news article
     if (message.type === 'IS_NEWS') {
-      sendResponse({ isNews: isNewsArticle() });
+      const content = getContent();
+      sendResponse({ isNews: isNewsArticle(content) });
+      return true;
+    }
+
+    // Handle ping from popup to check if script is loaded
+    if (message.type === 'PING') {
+      sendResponse({ ok: true });
       return true;
     }
   });
