@@ -1,1 +1,3 @@
-# This is not a working branch as it is no longer maintained so it is better to avoid it as it contains massive bugs.
+# This is not a working branch 
+Please avoid using this branch as it is no longer maintained.
+(fun fact - This has lot of bugs.)
