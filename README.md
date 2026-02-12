@@ -1,6 +1,6 @@
 # 📰 News Neutralizer Extension
 
-**Your personal AI media bias detector.**
+**Personal AI media bias detector.**
 
 News Neutralizer analyzes articles to reveal potential bias, extract key facts, and provide a neutral summary.
 

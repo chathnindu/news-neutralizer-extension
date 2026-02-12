@@ -30,6 +30,7 @@ const NEWS_CONFIG = {
 
 const mainView = document.getElementById('main-view');
 const settingsView = document.getElementById('settings-view');
+const unsupportedView = document.getElementById('unsupported-view');
 const statusEl = document.getElementById('status');
 const notConfiguredEl = document.getElementById('not-configured');
 const analyzeBtn = document.getElementById('analyze-btn');
@@ -86,12 +87,20 @@ async function isConfigured() {
 function showMainView() {
   mainView.classList.remove('hidden');
   settingsView.classList.add('hidden');
+  unsupportedView.classList.add('hidden');
 }
 
 function showSettingsView() {
   mainView.classList.add('hidden');
   settingsView.classList.remove('hidden');
+  unsupportedView.classList.add('hidden');
   loadSettings();
+}
+
+function showUnsupportedView() {
+  mainView.classList.add('hidden');
+  settingsView.classList.add('hidden');
+  unsupportedView.classList.remove('hidden');
 }
 
 function updateSignupLinks() {
@@ -311,14 +320,29 @@ async function searchNews(query) {
 async function runAnalysis() {
   analyzeBtn.classList.add('loading');
   analyzeBtn.disabled = true;
+  analyzeBtn.disabled = true;
   resultsEl.classList.add('hidden');
 
-  showStatus('Extracting article content...', 'loading');
+  showStatus('Checking page...', 'loading');
 
   try {
     // Get current tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error('No active tab found');
+
+    // Check if URL is supported
+    const url = tab.url || '';
+    if (url.startsWith('chrome://') ||
+      url.startsWith('edge://') ||
+      url.startsWith('about:') ||
+      url.startsWith('view-source:') ||
+      url.startsWith('file://')) { // file:// needs specific permission
+      console.warn('⚠️ Restricted URL scheme:', url);
+      showUnsupportedView();
+      return;
+    }
+
+    showStatus('Extracting article content...', 'loading');
 
     // Check if content script is already loaded, inject if not
     let scriptReady = false;
@@ -340,6 +364,9 @@ async function runAnalysis() {
         await new Promise(r => setTimeout(r, 200));
       } catch (e) {
         console.log('📜 Content script injection failed:', e.message);
+        // If injection fails, it's likely a restricted page
+        showUnsupportedView();
+        return;
       }
     }
 
@@ -349,7 +376,9 @@ async function runAnalysis() {
       extractResult = await chrome.tabs.sendMessage(tab.id, { type: 'GET_ARTICLE' });
     } catch (error) {
       console.error('Message failed:', error);
-      throw new Error('Could not access page. Try refreshing the page and trying again.');
+      // If we can't message the tab, assume it's not supported
+      showUnsupportedView();
+      return;
     }
 
     if (!extractResult?.ok) {
@@ -359,7 +388,15 @@ async function runAnalysis() {
     const article = extractResult.article;
 
     if (!article.content || article.content.length < 100) {
-      throw new Error('Not enough content. Make sure you\'re on a news article.');
+      showUnsupportedView();
+      return;
+    }
+
+    // Check if it's a news article
+    if (!article.isNews) {
+      console.log('⚠️ Page does not look like a news article');
+      showUnsupportedView();
+      return;
     }
 
     console.log('📰 Article extracted:', article.title);
