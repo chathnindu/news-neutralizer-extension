@@ -1,134 +1,553 @@
-(function () {
-  const analyzeBtn = document.getElementById('analyze');
-  const statusEl = document.getElementById('status');
-  const resultEl = document.getElementById('result');
-  const badgeRow = document.getElementById('badge-row');
-  const summaryCard = document.getElementById('summary-card');
-  const biasCard = document.getElementById('bias-card');
-  const toggleComparison = document.getElementById('toggle-comparison');
-  const comparisonEl = document.getElementById('comparison');
-  const sourcesSection = document.getElementById('sources');
-  const sourceList = document.getElementById('source-list');
+/**
+ * ============================================
+ * Popup Script - popup/popup.js (Simplified)
+ * ============================================
+ * 
+ * Main popup with DIRECT API calls (no service worker routing).
+ * This is more reliable for Chrome extensions.
+ */
 
-  function showStatus(text, type) {
-    statusEl.textContent = text;
-    statusEl.className = 'status ' + (type || '');
-    statusEl.classList.remove('hidden');
+// ============================================
+// Configuration
+// ============================================
+
+const AI_CONFIG = {
+  name: 'Groq',
+  baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+  model: 'llama-3.3-70b-versatile',
+  signupUrl: 'https://console.groq.com/keys'
+};
+
+const NEWS_CONFIG = {
+  name: 'GNews',
+  baseUrl: 'https://gnews.io/api/v4/search',
+  signupUrl: 'https://gnews.io/register'
+};
+
+// ============================================
+// DOM Elements
+// ============================================
+
+const mainView = document.getElementById('main-view');
+const settingsView = document.getElementById('settings-view');
+const unsupportedView = document.getElementById('unsupported-view');
+const statusEl = document.getElementById('status');
+const notConfiguredEl = document.getElementById('not-configured');
+const analyzeBtn = document.getElementById('analyze-btn');
+const resultsEl = document.getElementById('results');
+
+// Result elements
+const sourceBadgeEl = document.getElementById('source-badge');
+const summaryTextEl = document.getElementById('summary-text');
+const keyFactsEl = document.getElementById('key-facts');
+const factsListEl = document.getElementById('facts-list');
+const biasLabelEl = document.getElementById('bias-label');
+const scoreFillEl = document.getElementById('score-fill');
+const biasValueEl = document.getElementById('bias-value');
+const biasDirectionEl = document.getElementById('bias-direction');
+const biasAssessmentEl = document.getElementById('bias-assessment');
+const sourcesListEl = document.getElementById('sources-list');
+
+// Settings elements
+const settingsBtn = document.getElementById('settings-btn');
+const openSettingsBtn = document.getElementById('open-settings');
+const backBtn = document.getElementById('back-btn');
+const aiKeyInput = document.getElementById('ai-key');
+const newsKeyInput = document.getElementById('news-key');
+const aiSignupLink = document.getElementById('ai-signup-link');
+const newsSignupLink = document.getElementById('news-signup-link');
+const aiKeyStatusEl = document.getElementById('ai-key-status');
+const newsKeyStatusEl = document.getElementById('news-key-status');
+
+// ============================================
+// Storage Helpers (using chrome.storage.local)
+// ============================================
+
+async function getConfig() {
+  const result = await chrome.storage.local.get(['aiApiKey', 'newsApiKey']);
+  return {
+    aiApiKey: result.aiApiKey || '',
+    newsApiKey: result.newsApiKey || ''
+  };
+}
+
+async function saveKey(key, value) {
+  await chrome.storage.local.set({ [key]: value });
+}
+
+async function isConfigured() {
+  const config = await getConfig();
+  return !!(config.aiApiKey && config.newsApiKey);
+}
+
+// ============================================
+// View Management
+// ============================================
+
+function showMainView() {
+  mainView.classList.remove('hidden');
+  settingsView.classList.add('hidden');
+  unsupportedView.classList.add('hidden');
+}
+
+function showSettingsView() {
+  mainView.classList.add('hidden');
+  settingsView.classList.remove('hidden');
+  unsupportedView.classList.add('hidden');
+  loadSettings();
+}
+
+function showUnsupportedView() {
+  mainView.classList.add('hidden');
+  settingsView.classList.add('hidden');
+  unsupportedView.classList.remove('hidden');
+}
+
+function updateSignupLinks() {
+  aiSignupLink.href = AI_CONFIG.signupUrl;
+  newsSignupLink.href = NEWS_CONFIG.signupUrl;
+}
+
+// ============================================
+// Status Messages
+// ============================================
+
+function showStatus(message, type = 'loading') {
+  statusEl.textContent = message;
+  statusEl.className = `status ${type}`;
+  statusEl.classList.remove('hidden');
+}
+
+function hideStatus() {
+  statusEl.classList.add('hidden');
+}
+
+// ============================================
+// Settings
+// ============================================
+
+/**
+ * Show inline status next to a key input
+ */
+function showKeyStatus(statusEl, message, type) {
+  statusEl.textContent = message;
+  statusEl.className = `key-status ${type}`;
+}
+
+async function loadSettings() {
+  const config = await getConfig();
+  aiKeyInput.value = config.aiApiKey;
+  newsKeyInput.value = config.newsApiKey;
+  updateSignupLinks();
+
+  // Show current status for each key
+  updateKeyStatus(aiKeyInput, aiKeyStatusEl);
+  updateKeyStatus(newsKeyInput, newsKeyStatusEl);
+}
+
+function updateKeyStatus(input, statusEl) {
+  const val = input.value.trim();
+  if (val.length > 0) {
+    showKeyStatus(statusEl, '✅ Key saved', 'saved');
+  } else {
+    showKeyStatus(statusEl, '⚠️ No key set', 'empty');
+  }
+}
+
+/**
+ * Auto-save a single key when the input changes
+ */
+async function autoSaveKey(input, storageKey, statusEl) {
+  const val = input.value.trim();
+  if (val.length > 0) {
+    await saveKey(storageKey, val);
+    showKeyStatus(statusEl, '✅ Key saved', 'saved');
+  } else {
+    // Don't delete an existing key if the field is empty on blur
+    // Only clear if user explicitly blanked it out
+    const existing = await chrome.storage.local.get([storageKey]);
+    if (existing[storageKey] && val === '') {
+      // User intentionally cleared — save empty
+      await saveKey(storageKey, '');
+      showKeyStatus(statusEl, '⚠️ Key removed', 'empty');
+    } else {
+      showKeyStatus(statusEl, '⚠️ No key set', 'empty');
+    }
+  }
+  // Update main view configuration state
+  checkConfiguration();
+}
+
+async function checkConfiguration() {
+  const configured = await isConfigured();
+  if (configured) {
+    notConfiguredEl.classList.add('hidden');
+    analyzeBtn.classList.remove('hidden');
+  } else {
+    notConfiguredEl.classList.remove('hidden');
+    analyzeBtn.classList.add('hidden');
+  }
+  return configured;
+}
+
+// ============================================
+// API Calls (Direct - no service worker)
+// ============================================
+
+/**
+ * Call Groq API directly
+ */
+async function callGroq(prompt, apiKey) {
+  console.log('🤖 Calling Groq API...');
+
+  const response = await fetch(AI_CONFIG.baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: AI_CONFIG.model,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 4096
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error?.message || `Groq API error: ${response.status}`);
   }
 
-  function showResult(data) {
-    resultEl.classList.remove('hidden');
-    badgeRow.innerHTML = '';
-    summaryCard.innerHTML = '';
-    biasCard.innerHTML = '';
-    comparisonEl.innerHTML = '';
-    sourceList.innerHTML = '';
-    badgeRow.classList.add('hidden');
-    summaryCard.classList.add('hidden');
-    biasCard.classList.add('hidden');
-    toggleComparison.classList.add('hidden');
-    comparisonEl.classList.add('hidden');
-    sourcesSection.classList.add('hidden');
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
 
-    if (data.bias) {
-      const b = data.bias;
-      const label = data.biasLabel || (b.biasScore < 0.4 ? 'Low' : b.biasScore < 0.7 ? 'Moderate' : 'High');
-      biasCard.classList.remove('hidden');
-      biasCard.innerHTML = '<h2>Bias (current article)</h2><p class="bias-label">' + label + ' (score: ' + (b.biasScore != null ? b.biasScore.toFixed(2) : '—') + ')</p>' + (b.overallAssessment ? '<p class="muted">' + b.overallAssessment + '</p>' : '');
-    }
+/**
+ * Send prompt to Groq AI
+ */
+async function sendToAI(prompt) {
+  const config = await getConfig();
 
-    if (data.neutralSummary && data.neutralSummary.summary) {
-      summaryCard.classList.remove('hidden');
-      summaryCard.innerHTML = '<h2>Neutral summary</h2><p>' + data.neutralSummary.summary + '</p>';
-    }
-
-    const count = data.sourceCount || (data.sources && data.sources.length) || 0;
-    if (count > 0) {
-      badgeRow.classList.remove('hidden');
-      badgeRow.innerHTML = '<span class="badge">' + count + ' sources analyzed</span>';
-    }
-
-    const narrative = data.narrative;
-    const summary = data.neutralSummary;
-    const consensus = (narrative && narrative.commonPoints) || (summary && summary.consensusFacts) || [];
-    const differences = (narrative && narrative.differences) || (summary && summary.disputedPoints) || [];
-    if (consensus.length > 0 || differences.length > 0) {
-      toggleComparison.classList.remove('hidden');
-      toggleComparison.textContent = 'Show comparison';
-      comparisonEl.classList.add('hidden');
-      comparisonEl.innerHTML = '<h3>What sources agree on</h3><ul>' + consensus.map(function (c) { return '<li>' + (typeof c === 'string' ? c : (c.claim || JSON.stringify(c))) + '</li>'; }).join('') + '</ul><h3>Where they differ</h3><ul>' + differences.map(function (d) { return '<li>' + (typeof d === 'string' ? d : (d.aspect ? d.aspect + ': ' + JSON.stringify(d.sourceViews || d.sources || '') : (d.claim || JSON.stringify(d)))) + '</li>'; }).join('') + '</ul>';
-      toggleComparison.onclick = function () {
-        if (comparisonEl.classList.contains('hidden')) {
-          comparisonEl.classList.remove('hidden');
-          toggleComparison.textContent = 'Hide comparison';
-        } else {
-          comparisonEl.classList.add('hidden');
-          toggleComparison.textContent = 'Show comparison';
-        }
-      };
-    }
-
-    if (data.sources && data.sources.length > 0) {
-      sourcesSection.classList.remove('hidden');
-      data.sources.forEach(function (s) {
-        const a = document.createElement('a');
-        a.href = s.url || '#';
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.className = 'source-card';
-        const meta = s.biasDirection ? ' · ' + s.biasDirection + ' (' + (s.biasScore != null ? (s.biasScore * 100).toFixed(0) + '%' : '—') + ')' : '';
-        a.innerHTML = '<span class="title">' + (s.title || 'Untitled') + '</span><span class="meta">' + (s.source || '') + meta + '</span>';
-        sourceList.appendChild(a);
-      });
-    }
+  if (!config.aiApiKey) {
+    throw new Error('AI API key not configured. Go to Settings to add your Groq API key.');
   }
 
-  function loadLastResult() {
-    chrome.runtime.sendMessage({ type: 'GET_LAST_RESULT' }, function (last) {
-      if (last && last.ok) {
-        showResult(last);
+  return callGroq(prompt, config.aiApiKey);
+}
+
+/**
+ * Send prompt and parse as JSON (with 1 retry on parse failure)
+ */
+async function sendToAIJSON(prompt) {
+  const fullPrompt = `${prompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code fences, no explanation.`;
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const response = await sendToAI(
+      attempt === 1 ? fullPrompt : `${fullPrompt}\n\nYour previous response was not valid JSON. Please try again with ONLY valid JSON.`
+    );
+
+    // Clean up response — strip markdown fences and whitespace
+    const cleaned = response
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleaned);
+    } catch (parseError) {
+      console.warn(`JSON parse attempt ${attempt} failed:`, parseError.message);
+      if (attempt === 2) {
+        throw new Error('AI returned an invalid response. Please try again.');
       }
-    });
+      // Retry with a stronger prompt
+    }
+  }
+}
+
+/**
+ * Search GNews for related articles
+ */
+async function searchNews(query) {
+  const config = await getConfig();
+
+  if (!config.newsApiKey) {
+    console.warn('News API key not configured, skipping search');
+    return [];
   }
 
-  loadLastResult();
+  // Clean query
+  const cleanQuery = query
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100);
 
-  analyzeBtn.addEventListener('click', function () {
-    analyzeBtn.disabled = true;
-    resultEl.classList.add('hidden');
-    showStatus('Getting page content…', 'loading');
+  const params = new URLSearchParams({
+    q: cleanQuery,
+    apikey: config.newsApiKey,
+    max: '5',
+    lang: 'en'
+  });
 
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      var tab = tabs[0];
-      if (!tab || !tab.id) {
-        showStatus('No active tab', 'error');
-        analyzeBtn.disabled = false;
+  const url = `${NEWS_CONFIG.baseUrl}?${params}`;
+  console.log('🔍 Searching news...');
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      console.warn('News search failed:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    return (data.articles || []).map(a => ({
+      url: a.url,
+      title: a.title,
+      content: a.content || a.description || '',
+      source: a.source?.name || 'Unknown'
+    }));
+  } catch (error) {
+    console.warn('News search error:', error);
+    return [];
+  }
+}
+
+// ============================================
+// Analysis
+// ============================================
+
+async function runAnalysis() {
+  analyzeBtn.classList.add('loading');
+  analyzeBtn.disabled = true;
+  analyzeBtn.disabled = true;
+  resultsEl.classList.add('hidden');
+
+  showStatus('Checking page...', 'loading');
+
+  try {
+    // Get current tab
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) throw new Error('No active tab found');
+
+    // Check if URL is supported
+    const url = tab.url || '';
+    if (url.startsWith('chrome://') ||
+      url.startsWith('edge://') ||
+      url.startsWith('about:') ||
+      url.startsWith('view-source:') ||
+      url.startsWith('file://')) { // file:// needs specific permission
+      console.warn('⚠️ Restricted URL scheme:', url);
+      showUnsupportedView();
+      return;
+    }
+
+    showStatus('Extracting article content...', 'loading');
+
+    // Check if content script is already loaded, inject if not
+    let scriptReady = false;
+    try {
+      const ping = await chrome.tabs.sendMessage(tab.id, { type: 'PING' });
+      scriptReady = ping?.ok;
+    } catch (e) {
+      // Content script not loaded yet
+    }
+
+    if (!scriptReady) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/content.js']
+        });
+        console.log('📜 Content script injected');
+        // Wait for script to initialize
+        await new Promise(r => setTimeout(r, 200));
+      } catch (e) {
+        console.log('📜 Content script injection failed:', e.message);
+        // If injection fails, it's likely a restricted page
+        showUnsupportedView();
         return;
       }
-      chrome.tabs.sendMessage(tab.id, { type: 'GET_PAGE_ARTICLE' }, function (article) {
-        if (chrome.runtime.lastError) {
-          showStatus('Open a news article page first.', 'error');
-          analyzeBtn.disabled = false;
-          return;
-        }
-        if (!article || !article.content || article.content.length < 50) {
-          showStatus('Could not find enough text on this page.', 'error');
-          analyzeBtn.disabled = false;
-          return;
-        }
-        showStatus('Analyzing… (searching related sources)', 'loading');
-        chrome.runtime.sendMessage({ type: 'ANALYZE_PAGE', payload: article }, function (res) {
-          analyzeBtn.disabled = false;
-          if (res && res.ok) {
-            showStatus('Done.', 'loading');
-            statusEl.classList.remove('loading');
-            statusEl.classList.add('hidden');
-            showResult(res);
-          } else {
-            showStatus(res && res.error ? res.error : 'Analysis failed', 'error');
-          }
-        });
-      });
+    }
+
+    // Extract article from page
+    let extractResult;
+    try {
+      extractResult = await chrome.tabs.sendMessage(tab.id, { type: 'GET_ARTICLE' });
+    } catch (error) {
+      console.error('Message failed:', error);
+      // If we can't message the tab, assume it's not supported
+      showUnsupportedView();
+      return;
+    }
+
+    if (!extractResult?.ok) {
+      throw new Error(extractResult?.error || 'Failed to extract article');
+    }
+
+    const article = extractResult.article;
+
+    if (!article.content || article.content.length < 100) {
+      showUnsupportedView();
+      return;
+    }
+
+    // Check if it's a news article
+    if (!article.isNews) {
+      console.log('⚠️ Page does not look like a news article');
+      showUnsupportedView();
+      return;
+    }
+
+    console.log('📰 Article extracted:', article.title);
+
+    // Search for related articles
+    showStatus('Finding related sources...', 'loading');
+    const relatedArticles = await searchNews(article.title);
+    console.log(`📚 Found ${relatedArticles.length} related articles`);
+
+    // Analyze with AI
+    showStatus('Analyzing with AI...', 'loading');
+
+    const allArticles = [article, ...relatedArticles];
+    const articlesText = allArticles.map((a, i) =>
+      `Source ${i + 1} (${a.source}): ${a.content.substring(0, 1500)}`
+    ).join('\n\n');
+
+    const prompt = `Analyze this news article for bias and create a neutral summary.
+
+${articlesText}
+
+Respond with JSON:
+{
+  "summary": "A neutral, factual summary in 100-200 words",
+  "keyFacts": ["Fact 1", "Fact 2", "Fact 3"],
+  "biasScore": 0.0-1.0 (0=neutral, 1=very biased),
+  "biasDirection": "neutral" | "left-leaning" | "right-leaning" | "sensationalist",
+  "biasAssessment": "Brief explanation of bias"
+}`;
+
+    const result = await sendToAIJSON(prompt);
+
+    // Display results
+    hideStatus();
+    displayResults({
+      summary: { text: result.summary, keyFacts: result.keyFacts || [] },
+      bias: {
+        score: result.biasScore || 0,
+        direction: result.biasDirection || 'neutral',
+        assessment: result.biasAssessment || '',
+        label: getBiasLabel(result.biasScore || 0)
+      },
+      sources: allArticles.map(a => ({ url: a.url, title: a.title, source: a.source })),
+      sourceCount: allArticles.length
     });
+
+  } catch (error) {
+    console.error('Analysis failed:', error);
+    showStatus(error.message || 'Analysis failed', 'error');
+  } finally {
+    analyzeBtn.classList.remove('loading');
+    analyzeBtn.disabled = false;
+  }
+}
+
+function getBiasLabel(score) {
+  if (score < 0.2) return 'Minimal Bias';
+  if (score < 0.4) return 'Slight Bias';
+  if (score < 0.6) return 'Moderate Bias';
+  if (score < 0.8) return 'Significant Bias';
+  return 'Extreme Bias';
+}
+
+function displayResults(result) {
+  resultsEl.classList.remove('hidden');
+
+  // Source count
+  sourceBadgeEl.querySelector('.badge').textContent =
+    `${result.sourceCount} source${result.sourceCount > 1 ? 's' : ''} analyzed`;
+
+  // Summary
+  summaryTextEl.textContent = result.summary?.text || '-';
+
+  if (result.summary?.keyFacts?.length > 0) {
+    keyFactsEl.classList.remove('hidden');
+    factsListEl.innerHTML = result.summary.keyFacts
+      .map(fact => `<li>${escapeHtml(fact)}</li>`)
+      .join('');
+  } else {
+    keyFactsEl.classList.add('hidden');
+  }
+
+  // Bias
+  const biasPercent = Math.round((result.bias?.score || 0) * 100);
+  biasLabelEl.textContent = result.bias?.label || 'Unknown';
+  scoreFillEl.style.width = `${biasPercent}%`;
+  biasValueEl.textContent = `${biasPercent}%`;
+  biasDirectionEl.textContent = formatDirection(result.bias?.direction);
+  biasAssessmentEl.textContent = result.bias?.assessment || '';
+
+  // Sources
+  if (result.sources?.length > 0) {
+    sourcesListEl.innerHTML = result.sources
+      .map(s => `
+                <a href="${escapeHtml(s.url || '#')}" target="_blank" class="source-item">
+                    <span class="title">${escapeHtml(s.title || 'Untitled')}</span>
+                    <span class="meta">${escapeHtml(s.source || 'Unknown')}</span>
+                </a>
+            `)
+      .join('');
+  }
+}
+
+function formatDirection(direction) {
+  const labels = {
+    'neutral': '✅ Neutral',
+    'left-leaning': '⬅️ Left-leaning',
+    'right-leaning': '➡️ Right-leaning',
+    'sensationalist': '⚡ Sensationalist'
+  };
+  return labels[direction] || direction || 'Unknown';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+// ============================================
+// Event Listeners
+// ============================================
+
+settingsBtn.addEventListener('click', showSettingsView);
+openSettingsBtn.addEventListener('click', showSettingsView);
+backBtn.addEventListener('click', () => {
+  showMainView();
+  checkConfiguration();
+});
+analyzeBtn.addEventListener('click', runAnalysis);
+
+// Auto-save keys on input change (paste or type)
+aiKeyInput.addEventListener('input', () => autoSaveKey(aiKeyInput, 'aiApiKey', aiKeyStatusEl));
+newsKeyInput.addEventListener('input', () => autoSaveKey(newsKeyInput, 'newsApiKey', newsKeyStatusEl));
+
+// Show/hide password toggle
+document.querySelectorAll('.toggle-vis').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.target);
+    if (target) {
+      const isPassword = target.type === 'password';
+      target.type = isPassword ? 'text' : 'password';
+      btn.textContent = isPassword ? '🙈' : '👁';
+    }
   });
+});
+
+// ============================================
+// Initialize
+// ============================================
+
+(async function init() {
+  await checkConfiguration();
 })();

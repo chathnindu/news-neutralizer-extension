@@ -1,32 +1,168 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2563eb">
   <title>News Neutralizer</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
-  <div class="popup">
-    <header>
-      <h1>News Neutralizer</h1>
-      <p class="subtitle">See how multiple sources cover the same story</p>
+  <!-- 
+    ============================================
+    News Neutralizer Popup
+    ============================================
+    
+    Main extension popup with two views:
+    1. Main View - Shows analysis results
+    2. Settings View - Configure API keys (BYOK)
+  -->
+
+  <div id="app" class="popup">
+
+    <!-- Header with settings toggle -->
+    <header class="header">
+      <h1>📰 News Neutralizer</h1>
+      <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
     </header>
-    <button type="button" id="analyze" class="primary">Get neutral view</button>
-    <div id="status" class="status hidden"></div>
-    <div id="result" class="result hidden">
-      <div id="badge-row" class="badge-row hidden"></div>
-      <section id="summary-card" class="card hidden"></section>
-      <section id="bias-card" class="card hidden"></section>
-      <button type="button" id="toggle-comparison" class="secondary hidden">Show comparison</button>
-      <div id="comparison" class="comparison hidden"></div>
-      <section id="sources" class="sources-section hidden">
-        <h2>Sources</h2>
-        <div id="source-list" class="source-grid"></div>
-      </section>
+
+    <!-- ============================================ -->
+    <!-- MAIN VIEW - Analysis Results -->
+    <!-- ============================================ -->
+    <div id="main-view">
+
+      <!-- Status message (loading, errors) -->
+      <div id="status" class="status hidden"></div>
+
+      <!-- Not configured message -->
+      <div id="not-configured" class="card warning hidden">
+        <p>⚠️ API keys not configured</p>
+        <button id="open-settings" class="btn secondary">Configure API Keys</button>
+      </div>
+
+      <!-- Analyze button -->
+      <button id="analyze-btn" class="btn primary">
+        <span class="btn-text">🔍 Analyze This Article</span>
+        <span class="btn-loading hidden">Analyzing...</span>
+      </button>
+
+      <!-- Results container (hidden until analysis complete) -->
+      <div id="results" class="results hidden">
+
+        <!-- Source count badge -->
+        <div id="source-badge" class="badge-row">
+          <span class="badge">0 sources analyzed</span>
+        </div>
+
+        <!-- Neutral Summary -->
+        <section id="summary-section" class="card">
+          <h2>📝 Neutral Summary</h2>
+          <p id="summary-text">-</p>
+
+          <!-- Key Facts -->
+          <div id="key-facts" class="facts-list hidden">
+            <h3>Key Facts</h3>
+            <ul id="facts-list"></ul>
+          </div>
+        </section>
+
+        <!-- Bias Analysis -->
+        <section id="bias-section" class="card">
+          <h2>⚖️ Bias Analysis</h2>
+          <div class="bias-score">
+            <span id="bias-label" class="label">Unknown</span>
+            <div class="score-bar">
+              <div id="score-fill" class="score-fill" style="width: 0%"></div>
+            </div>
+            <span id="bias-value" class="value">0%</span>
+          </div>
+          <p id="bias-direction" class="direction">-</p>
+          <p id="bias-assessment" class="assessment muted">-</p>
+        </section>
+
+
+
+        <!-- Sources List -->
+        <section id="sources-section" class="card">
+          <h2>📚 Sources</h2>
+          <div id="sources-list" class="sources-grid"></div>
+        </section>
+
+      </div>
     </div>
+
+    <!-- ============================================ -->
+    <!-- UNSUPPORTED VIEW - Non-news content -->
+    <!-- ============================================ -->
+    <div id="unsupported-view" class="view hidden">
+      <div class="empty-state">
+        <div class="empty-icon">🤷‍♂️</div>
+        <h2>Not an Article?</h2>
+        <p>This extension works best on news sites and articles.</p>
+        <p class="muted">Please navigate to a news article to use News Neutralizer.</p>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- SETTINGS VIEW - API Configuration -->
+    <!-- ============================================ -->
+    <div id="settings-view" class="hidden">
+
+      <h2>⚙️ Settings</h2>
+      <p class="subtitle">Configure your free API keys</p>
+
+      <!-- AI Provider (Groq only) -->
+      <div class="form-group">
+        <label>AI Provider</label>
+        <div class="provider-label">Groq (Llama 3.3 70B) — 14,400 req/day</div>
+        <a id="ai-signup-link" href="https://console.groq.com/keys" target="_blank" class="help-link">
+          Get free API key ↗
+        </a>
+      </div>
+
+      <div class="form-group">
+        <label for="ai-key">Groq API Key</label>
+        <div class="input-wrapper">
+          <input type="password" id="ai-key" placeholder="Paste your Groq API key here">
+          <button type="button" class="toggle-vis" data-target="ai-key" title="Show/hide key">👁</button>
+        </div>
+        <span id="ai-key-status" class="key-status"></span>
+      </div>
+
+      <hr>
+
+      <!-- News Provider (GNews only) -->
+      <div class="form-group">
+        <label>News Provider</label>
+        <div class="provider-label">GNews — 100 req/day</div>
+        <a id="news-signup-link" href="https://gnews.io/register" target="_blank" class="help-link">
+          Get free API key ↗
+        </a>
+      </div>
+
+      <div class="form-group">
+        <label for="news-key">GNews API Key</label>
+        <div class="input-wrapper">
+          <input type="password" id="news-key" placeholder="Paste your GNews API key here">
+          <button type="button" class="toggle-vis" data-target="news-key" title="Show/hide key">👁</button>
+        </div>
+        <span id="news-key-status" class="key-status"></span>
+      </div>
+
+      <div class="button-row">
+        <button id="back-btn" class="btn secondary">← Done</button>
+      </div>
+
+      <p class="footer-note">
+        All your data stays local. API keys are stored securely in your browser.
+      </p>
+
+    </div>
+
   </div>
-  <script src="popup.js"></script>
+
+  <script src="popup.js" type="module"></script>
 </body>
+
 </html>
