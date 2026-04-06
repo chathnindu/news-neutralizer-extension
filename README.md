@@ -40,7 +40,6 @@ News Neutralizer works best on article pages. Here are some sites confirmed to w
 - [ ] Fox News
 - [ ] Reuters
 - [ ] Al Jazeera
-- [ ] (Add your favorite site here!)
 
 ## 🤝 Contributing
 
